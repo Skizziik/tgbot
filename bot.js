@@ -7,10 +7,31 @@ import path from 'path';
 
 dotenv.config();
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
+  polling: {
+    interval: 300,
+    autoStart: true,
+    params: {
+      timeout: 10
+    }
+  }
+});
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const userStates = new Map();
+
+bot.on('polling_error', (error) => {
+  console.error('Polling error:', error.message);
+  if (error.code === 'ETELEGRAM' && error.message.includes('409')) {
+    console.log('Конфликт polling. Переподключение через 5 секунд...');
+    setTimeout(() => {
+      bot.stopPolling().then(() => {
+        bot.startPolling();
+      });
+    }, 5000);
+  }
+});
 
 console.log('Бот запущен и готов к работе!');
 

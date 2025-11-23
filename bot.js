@@ -52,6 +52,51 @@ bot.on('photo', async (msg) => {
   }
 });
 
+bot.on('document', async (msg) => {
+  const chatId = msg.chat.id;
+  const document = msg.document;
+
+  const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+
+  if (!imageTypes.includes(document.mime_type)) {
+    await bot.sendMessage(chatId, 'Пожалуйста, отправьте изображение (JPG, PNG, GIF или WebP).');
+    return;
+  }
+
+  try {
+    const file = await bot.getFile(document.file_id);
+    const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+
+    const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+    const imageBuffer = Buffer.from(response.data);
+
+    userStates.set(chatId, {
+      imageBuffer: imageBuffer,
+      mimeType: document.mime_type
+    });
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '🇬🇧 Перевести на английский', callback_data: 'translate_en' },
+          { text: '🇷🇺 Перевести на русский', callback_data: 'translate_ru' }
+        ],
+        [
+          { text: '📝 Транскрибировать текст', callback_data: 'transcribe' }
+        ]
+      ]
+    };
+
+    await bot.sendMessage(chatId, 'Изображение получено! Что вы хотите сделать?', {
+      reply_markup: keyboard
+    });
+
+  } catch (error) {
+    console.error('Ошибка при обработке изображения:', error);
+    await bot.sendMessage(chatId, 'Произошла ошибка при обработке изображения. Попробуйте еще раз.');
+  }
+});
+
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const action = query.data;
@@ -125,7 +170,7 @@ bot.on('callback_query', async (query) => {
 });
 
 bot.on('message', async (msg) => {
-  if (msg.photo) return;
+  if (msg.photo || msg.document) return;
 
   const chatId = msg.chat.id;
   const text = msg.text;
@@ -135,14 +180,14 @@ bot.on('message', async (msg) => {
       chatId,
       'Привет! 👋\n\n' +
       'Я бот для работы с изображениями.\n\n' +
-      'Просто отправьте мне любое изображение, и я предложу вам:\n' +
+      'Просто отправьте мне любое изображение (как фото или файл), и я предложу вам:\n' +
       '🇬🇧 Перевести текст на английский\n' +
       '🇷🇺 Перевести текст на русский\n' +
       '📝 Транскрибировать текст с изображения\n\n' +
       'Давайте начнем! Отправьте мне изображение.'
     );
-  } else if (!msg.photo) {
-    await bot.sendMessage(chatId, 'Пожалуйста, отправьте мне изображение для обработки.');
+  } else if (!msg.photo && !msg.document) {
+    await bot.sendMessage(chatId, 'Пожалуйста, отправьте мне изображение для обработки (как фото или файл).');
   }
 });
 

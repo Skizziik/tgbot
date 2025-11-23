@@ -2,8 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
+import http from 'http';
 
 dotenv.config();
 
@@ -212,9 +211,41 @@ bot.on('message', async (msg) => {
   }
 });
 
+// HTTP сервер для Render (чтобы не засыпал)
+const PORT = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+  if (req.url === '/health' || req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'alive',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    }));
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
+});
+
+server.listen(PORT, () => {
+  console.log(`HTTP сервер запущен на порту ${PORT}`);
+});
+
+// Keep-alive: пингуем сами себя каждые 10 минут
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+if (RENDER_URL) {
+  setInterval(() => {
+    axios.get(`${RENDER_URL}/health`)
+      .then(() => console.log('✓ Keep-alive пинг отправлен'))
+      .catch((err) => console.log('✗ Keep-alive пинг не удался:', err.message));
+  }, 10 * 60 * 1000); // каждые 10 минут
+  console.log('Keep-alive активирован для:', RENDER_URL);
+}
+
 process.on('SIGINT', () => {
   console.log('Остановка бота...');
   bot.stopPolling();
+  server.close();
   process.exit(0);
 });
 

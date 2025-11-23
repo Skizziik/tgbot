@@ -67,7 +67,7 @@ bot.on('callback_query', async (query) => {
     await bot.answerCallbackQuery(query.id);
     await bot.sendMessage(chatId, 'Обрабатываю изображение... ⏳');
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const imagePart = {
       inlineData: {
